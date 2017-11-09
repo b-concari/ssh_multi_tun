@@ -37,6 +37,7 @@ get_priv_key() {
 
 trap '{ kill $(jobs -p) 2>/dev/null; exit 0; }' EXIT
 
+SSH_OPTS=
 PORTSTART=40000
 FIRST=1
 
@@ -44,7 +45,7 @@ while [ "$1" ]
 do
     if [ -z "$2" ]
     then
-        ssh -p $PORTSTART $USER@localhost
+        ssh $SSH_OPTS -p $PORTSTART $USER@localhost
     else
         USER=`get_user $1`
         HOST=`get_host $1`
@@ -59,10 +60,10 @@ do
 
         if [ $FIRST -eq 1 ]
         then
-            ssh -N -L $PORTSTART:$THOST:$TPORT $PRIVKEY-p $PORT $USER@$HOST &
+            ssh $SSH_OPTS -N -L $PORTSTART:$THOST:$TPORT $PRIVKEY-p $PORT $USER@$HOST &
             FIRST=0
         else
-            ssh -N -L $(($PORTSTART + 1)):$THOST:$TPORT $PRIVKEY-p $PORTSTART $USER@localhost &
+            ssh $SSH_OPTS -N -L $(($PORTSTART + 1)):$THOST:$TPORT $PRIVKEY-p $PORTSTART $USER@localhost &
             let PORTSTART+=1
         fi
 
