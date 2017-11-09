@@ -1,0 +1,14 @@
+Tunnel ssh connections through an arbitrary number of hosts.
+
+Usage: ./multi_tun.sh user@host1:port[:ssh_priv_key_file] [[user@host2:port[:ssh_priv_key_file]] [user@host3:port[:ssh_priv_key_file]] ...]
+
+The host:port combinations specified create a path of SSH
+tunnels which end at the final host:port specified (and
+open a shell there).
+
+Example: ./multi_tun.sh bryan@gateway.com bp@ssh.myprivate.com:4422 admin@192.168.1.10
+
+Would create an SSH tunnel to ssh.myprivate.com:4422 through
+gateway.com:22, then create another tunnel through
+ssh.myprivate.com:4422 to 192.168.1.10, then open a shell
+on that host for user "admin".
