@@ -35,20 +35,24 @@ get_priv_key() {
     echo $1 | awk -F: '{print $3}'
 }
 
-trap '{ kill $(jobs -p) 2>/dev/null; exit 0; }' EXIT
+SSH_PIDS=
+trap '{ kill $(jobs -p) 2>/dev/null; for pid in $SSH_PIDS; do kill $pid 2>/dev/null; done; exit 0; }' EXIT
 
 SSH_OPTS=
+SSH_MULTI_OPTS="-fN -o ExitOnForwardFailure=yes"
 PORTSTART=40000
 FIRST=1
 
 while [ "$1" ]
 do
+    USER=`get_user $1`
+    HOST=`get_host $1`
+    echo "$USER@$HOST"
+
     if [ -z "$2" ]
     then
         ssh $SSH_OPTS -p $PORTSTART $USER@localhost
     else
-        USER=`get_user $1`
-        HOST=`get_host $1`
         PORT=`get_port $1`
         PRIVKEY=`get_priv_key $1`
 
@@ -60,14 +64,20 @@ do
 
         if [ $FIRST -eq 1 ]
         then
-            ssh $SSH_OPTS -N -L $PORTSTART:$THOST:$TPORT $PRIVKEY-p $PORT $USER@$HOST &
+            ssh $SSH_MULTI_OPTS -L $PORTSTART:$THOST:$TPORT $PRIVKEY-p $PORT $USER@$HOST 2>/dev/null
+            [ $? -ne 0 ] && exit 1
+            PID=$(ps aux | grep "ssh $SSH_MULTI_OPTS -L $PORTSTART:$THOST:$TPORT $PRIVKEY-p $PORT $USER@$HOST" | grep -v grep | awk '{print $2}')
+            SSH_PIDS="$PID $SSH_PIDS"
             FIRST=0
         else
-            ssh $SSH_OPTS -N -L $(($PORTSTART + 1)):$THOST:$TPORT $PRIVKEY-p $PORTSTART $USER@localhost &
+            ssh $SSH_MULTI_OPTS -L $(($PORTSTART + 1)):$THOST:$TPORT $PRIVKEY-p $PORTSTART $USER@localhost
+            [ $? -ne 0 ] && exit 1
+            PID=$(ps aux | grep "ssh $SSH_MULTI_OPTS -L $(($PORTSTART + 1)):$THOST:$TPORT $PRIVKEY-p $PORTSTART $USER@localhost" | grep -v grep | awk '{print $2}')
+            SSH_PIDS="$PID $SSH_PIDS"
             let PORTSTART+=1
         fi
 
-        while [ -z "$(nc -z 127.0.0.1 $PORTSTART 2>&1)" ]; do sleep 1; done
+        while : ; do nc -z 127.0.0.1 $PORTSTART; [[ $? -eq 0 ]] && break; sleep 5 & wait $!; done
     fi
 
     shift
