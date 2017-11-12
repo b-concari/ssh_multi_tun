@@ -43,6 +43,9 @@ SSH_MULTI_OPTS="-fN -o ExitOnForwardFailure=yes"
 PORTSTART=40000
 FIRST=1
 
+# Delete all localhost known hosts
+sed -i '/^\[localhost/ d' ~/.ssh/known_hosts
+
 while [ "$1" ]
 do
     USER=`get_user $1`
@@ -64,7 +67,7 @@ do
 
         if [ $FIRST -eq 1 ]
         then
-            ssh $SSH_MULTI_OPTS -L $PORTSTART:$THOST:$TPORT $PRIVKEY-p $PORT $USER@$HOST 2>/dev/null
+            ssh $SSH_MULTI_OPTS -L $PORTSTART:$THOST:$TPORT $PRIVKEY-p $PORT $USER@$HOST
             [ $? -ne 0 ] && exit 1
             PID=$(ps aux | grep "ssh $SSH_MULTI_OPTS -L $PORTSTART:$THOST:$TPORT $PRIVKEY-p $PORT $USER@$HOST" | grep -v grep | awk '{print $2}')
             SSH_PIDS="$PID $SSH_PIDS"
