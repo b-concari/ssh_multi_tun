@@ -39,12 +39,10 @@ SSH_PIDS=
 trap '{ kill $(jobs -p) 2>/dev/null; for pid in $SSH_PIDS; do kill $pid 2>/dev/null; done; exit 0; }' EXIT
 
 SSH_OPTS=
-SSH_MULTI_OPTS="-fN -o ExitOnForwardFailure=yes"
+SSH_MULTI_OPTS="$SSH_OPTS-fN -o ExitOnForwardFailure=yes "
+SSH_DISABLE_HOSTKEY="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
 PORTSTART=40000
 FIRST=1
-
-# Delete all localhost known hosts
-sed -i '/^\[localhost/ d' ~/.ssh/known_hosts
 
 while [ "$1" ]
 do
@@ -54,7 +52,7 @@ do
 
     if [ -z "$2" ]
     then
-        ssh $SSH_OPTS -p $PORTSTART $USER@localhost
+        ssh $SSH_OPTS $SSH_DISABLE_HOSTKEY -p $PORTSTART $USER@localhost
     else
         PORT=`get_port $1`
         PRIVKEY=`get_priv_key $1`
@@ -67,15 +65,27 @@ do
 
         if [ $FIRST -eq 1 ]
         then
-            ssh $SSH_MULTI_OPTS -L $PORTSTART:$THOST:$TPORT $PRIVKEY-p $PORT $USER@$HOST
+            CMD="ssh $SSH_MULTI_OPTS-L $PORTSTART:$THOST:$TPORT $PRIVKEY-p $PORT $USER@$HOST"
+            $CMD
             [ $? -ne 0 ] && exit 1
-            PID=$(ps aux | grep "ssh $SSH_MULTI_OPTS -L $PORTSTART:$THOST:$TPORT $PRIVKEY-p $PORT $USER@$HOST" | grep -v grep | awk '{print $2}')
+            PID=$(ps aux | grep -F "$CMD" | grep -v grep | awk '{print $2}')
+            if [ -z "$PID" ]
+            then
+                echo "Failed to capture PID for ssh to $HOST."
+                exit 1
+            fi
             SSH_PIDS="$PID $SSH_PIDS"
             FIRST=0
         else
-            ssh $SSH_MULTI_OPTS -L $(($PORTSTART + 1)):$THOST:$TPORT $PRIVKEY-p $PORTSTART $USER@localhost
+            CMD="ssh ${SSH_MULTI_OPTS}${SSH_DISABLE_HOSTKEY}-L $(($PORTSTART + 1)):$THOST:$TPORT $PRIVKEY-p $PORTSTART $USER@localhost"
+            $CMD
             [ $? -ne 0 ] && exit 1
-            PID=$(ps aux | grep "ssh $SSH_MULTI_OPTS -L $(($PORTSTART + 1)):$THOST:$TPORT $PRIVKEY-p $PORTSTART $USER@localhost" | grep -v grep | awk '{print $2}')
+            PID=$(ps aux | grep -F "$CMD" | grep -v grep | awk '{print $2}')
+            if [ -z "$PID" ]
+            then
+                echo "Failed to capture PID for ssh to $HOST."
+                exit 1
+            fi
             SSH_PIDS="$PID $SSH_PIDS"
             let PORTSTART+=1
         fi
